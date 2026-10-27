@@ -6,16 +6,9 @@ const todayDate = document.getElementById('todayDate');
 todayDate.textContent = todayText;
 todayDate.dateTime = todayText;
 
-// 01 단원 : 일정 목록을 코드 안에 둠 (가상 데이터) → 04 단원에서 data/tasks.json 으로 분리
-const SAMPLE_TASKS = [
-  { title: '다중이용시설 안전점검', region: '세종', kind: '야외', owner: '김안전' },
-  { title: '시민 안전체험 행사 운영', region: '보령', kind: '야외', owner: '이행사' },
-  { title: '옥상 태양광 설비 점검', region: '태안', kind: '고소', owner: '박설비' },
-  { title: '하천 수위계 확인', region: '대전', kind: '야외', owner: '최현장' },
-  { title: '청사 외벽 간판 보수', region: '세종', kind: '고소', owner: '정시설' },
-  { title: '비상연락 훈련', region: '대전', kind: '실내', owner: '한상황' },
-];
-
+let baseTasks = [];
+let addedTasks = [];
+let tasksReady = false;
 let tasks = [];
 let weatherByRegion = {};
 let weatherLoading = false;
@@ -61,7 +54,7 @@ async function loadObservations() {
   const list = document.getElementById('observations');
   list.innerHTML = '';
   if (window.location.protocol === 'file:') {
-    status.textContent = '기상청 현재 관측은 Vercel 배포 주소에서 확인할 수 있습니다. 오늘 예보와 일정은 이 화면에서도 사용할 수 있습니다.';
+    status.textContent = '기상청 현재 관측은 Vercel 배포 주소에서 확인할 수 있습니다. 일정 목록은 배포 주소에서 열어 주세요.';
     return;
   }
   status.textContent = '기상청 관측을 불러오는 중입니다…';
@@ -89,9 +82,47 @@ async function loadObservations() {
   status.textContent = '출처: 기상청 초단기실황. 제공 지연을 고려해 1시간 전 정시 관측을 조회합니다.';
 }
 
-function loadTasks() {
-  const saved = JSON.parse(localStorage.getItem('wx_added') || '[]');
-  tasks = SAMPLE_TASKS.concat(saved);
+async function loadTasks() {
+  const status = document.getElementById('taskStatus');
+  const button = document.querySelector('#taskForm button');
+  button.disabled = true;
+  status.textContent = '일정 목록을 불러오는 중입니다…';
+  try {
+    const response = await fetch('data/tasks.json');
+    if (!response.ok) throw new Error('일정 요청 실패');
+    const data = await response.json();
+    if (!Array.isArray(data) || !data.every(isTask)) throw new Error('일정 형식 오류');
+    baseTasks = data;
+  } catch {
+    status.textContent = window.location.protocol === 'file:'
+      ? '배포 주소로 열어 주세요'
+      : '일정 목록을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.';
+    return;
+  }
+  try {
+    const saved = JSON.parse(localStorage.getItem('wx_added') || '[]');
+    if (!Array.isArray(saved) || !saved.every(isTask)) throw new Error('저장 형식 오류');
+    addedTasks = saved;
+    status.textContent = '';
+  } catch {
+    status.textContent = '브라우저에 저장된 추가 일정을 읽지 못했습니다. 기본 일정만 표시합니다.';
+    renderTasksFromData();
+    return;
+  }
+  tasksReady = true;
+  button.disabled = false;
+  renderTasksFromData();
+}
+
+function isTask(task) {
+  return task && typeof task.title === 'string' && task.title.trim()
+    && typeof task.owner === 'string' && task.owner.trim()
+    && Object.hasOwn(REGIONS, task.region) && ['야외', '고소', '실내'].includes(task.kind);
+}
+
+function renderTasksFromData() {
+  tasks = baseTasks.concat(addedTasks);
+  renderTasks();
 }
 
 function weatherText(w) {
@@ -120,6 +151,7 @@ function renderTasks() {
 
 function addTask(e) {
   e.preventDefault();
+  if (!tasksReady) return;
   const t = {
     title: document.getElementById('titleInput').value.trim(),
     region: document.getElementById('regionInput').value,
@@ -127,12 +159,17 @@ function addTask(e) {
     owner: document.getElementById('ownerInput').value.trim(),
   };
   if (!t.title || !t.owner) return;
-  const saved = JSON.parse(localStorage.getItem('wx_added') || '[]');
-  saved.push(t);
-  localStorage.setItem('wx_added', JSON.stringify(saved));
+  const next = addedTasks.concat(t);
+  try {
+    localStorage.setItem('wx_added', JSON.stringify(next));
+  } catch {
+    document.getElementById('msgBox').textContent = '일정을 저장하지 못했습니다. 브라우저 저장 공간과 설정을 확인해 주세요.';
+    return;
+  }
+  addedTasks = next;
+  document.getElementById('msgBox').textContent = '';
   e.target.reset();
-  loadTasks();
-  renderTasks();
+  renderTasksFromData();
 }
 
 document.getElementById('taskForm').addEventListener('submit', addTask);
