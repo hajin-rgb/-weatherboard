@@ -8,6 +8,19 @@ create table if not exists public.wx_tasks (
   owner text not null check (char_length(btrim(owner)) between 1 and 100),
   created_at timestamptz not null default now()
 );
+-- 기존 표가 있어도 허용값과 필수 입력 규칙을 적용합니다.
+alter table public.wx_tasks
+  alter column title set not null,
+  alter column region set not null,
+  alter column kind set not null,
+  alter column owner set not null;
+alter table public.wx_tasks drop constraint if exists wx_tasks_allowed_values;
+alter table public.wx_tasks add constraint wx_tasks_allowed_values check (
+  region in ('세종', '대전', '태안', '보령')
+  and kind in ('야외', '고소', '실내')
+  and char_length(btrim(title)) between 1 and 200
+  and char_length(btrim(owner)) between 1 and 100
+);
 alter table public.wx_tasks enable row level security;
 revoke all on public.wx_tasks from anon, authenticated;
 grant usage on schema public to anon;
