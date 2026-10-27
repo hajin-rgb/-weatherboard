@@ -1,5 +1,11 @@
 // app.js – 화면 동작 (목록 그리기, 일정 추가)
 
+const today = new Date();
+const todayText = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+const todayDate = document.getElementById('todayDate');
+todayDate.textContent = todayText;
+todayDate.dateTime = todayText;
+
 // 01 단원 : 일정 목록을 코드 안에 둠 (가상 데이터) → 04 단원에서 data/tasks.json 으로 분리
 const SAMPLE_TASKS = [
   { title: '다중이용시설 안전점검', region: '세종', kind: '야외', owner: '김안전' },
