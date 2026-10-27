@@ -17,7 +17,32 @@ const SAMPLE_TASKS = [
 ];
 
 let tasks = [];
-let weatherByRegion = {};   // 03 단원에서 지역별 날씨를 넣음
+let weatherByRegion = {};
+
+async function loadWeather() {
+  const box = document.getElementById('weatherBox');
+  const testWind = new URLSearchParams(window.location.search).get('test') === 'wind';
+  const failed = [];
+  box.textContent = '오늘 날씨를 불러오는 중입니다…';
+  await Promise.all(Object.keys(REGIONS).map(async (region) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+      const response = await fetch(buildWeatherUrl(region), { signal: controller.signal });
+      if (!response.ok) throw new Error('날씨 요청 실패');
+      weatherByRegion[region] = parseWeather(await response.json(), testWind);
+    } catch (error) {
+      failed.push(region);
+    } finally {
+      clearTimeout(timeout);
+      renderTasks();
+    }
+  }));
+  box.textContent = failed.length
+    ? `날씨를 불러오지 못한 지역: ${failed.join(' · ')}. 인터넷 연결을 확인하고 새로고침해 주세요. 일정 목록은 계속 사용할 수 있습니다.`
+    : '세종 · 대전 · 태안 · 보령 오늘 예보 — 최고 기온(℃) · 최대 풍속(m/s) · 최대 강수확률(%) | 출처: Open-Meteo';
+  if (testWind) box.textContent += ' [강풍 테스트: 수신한 날씨의 풍속을 12m/s로 적용]';
+}
 
 function loadTasks() {
   const saved = JSON.parse(localStorage.getItem('wx_added') || '[]');
@@ -68,3 +93,4 @@ function addTask(e) {
 document.getElementById('taskForm').addEventListener('submit', addTask);
 loadTasks();
 renderTasks();
+loadWeather();
