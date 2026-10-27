@@ -130,6 +130,7 @@ function weatherText(w) {
 }
 
 function renderTasks() {
+  document.getElementById('saveJudgment').disabled = tasks.length === 0;
   const body = document.getElementById('taskList');
   body.innerHTML = '';
   for (const t of tasks) {
@@ -147,6 +148,22 @@ function renderTasks() {
     tr.appendChild(td);
     body.appendChild(tr);
   }
+}
+
+function saveJudgment() {
+  const rows = Array.from(document.querySelectorAll('#taskList tr'), row =>
+    Array.from(row.querySelectorAll('td'), cell => cell.textContent));
+  if (!rows.length) return;
+  const testWind = new URLSearchParams(window.location.search).get('test') === 'wind';
+  const markdown = createJudgmentMarkdown(rows, todayText, testWind);
+  const url = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `현장일정_판단_${todayText}.md`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function addTask(e) {
@@ -174,6 +191,7 @@ function addTask(e) {
 
 document.getElementById('taskForm').addEventListener('submit', addTask);
 document.getElementById('refreshWeather').addEventListener('click', loadWeather);
+document.getElementById('saveJudgment').addEventListener('click', saveJudgment);
 loadTasks();
 renderTasks();
 loadWeather();

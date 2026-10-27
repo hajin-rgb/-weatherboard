@@ -44,4 +44,23 @@ function judge(kind, w) {
   return { level: 'ok', text: '진행' };
 }
 
-if (typeof module !== 'undefined') module.exports = { REGIONS, buildWeatherUrl, parseWeather, RULES, judge };
+function createJudgmentMarkdown(rows, date, testWind = false) {
+  // HTML 문법과 표 구분 문자, 줄바꿈이 셀 구조를 깨뜨리지 않도록 처리합니다.
+  const cell = value => String(value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\\/g, '&#92;').replace(/\|/g, '&#124;')
+    .replace(/\r\n|\r|\n/g, '<br>');
+  const lines = [
+    `# 현장 일정 판단 ${date}`,
+    '',
+    ...(testWind ? ['강풍 테스트 결과: 풍속 12m/s 적용.', ''] : []),
+    '| 일정 | 지역 | 구분 | 담당 | 날씨 | 판단 |',
+    '| --- | --- | --- | --- | --- | --- |',
+    ...rows.map(row => '| ' + row.map(cell).join(' | ') + ' |'),
+    '',
+    `판단 기준(교육용): 고소 일정 풍속 ${RULES.wind}m/s 이상 → 중지 검토 · 강수확률 ${RULES.rain}% 이상 → 우천 주의 · 기온 ${RULES.heat}℃ 이상 → 폭염 휴식 (실내는 영향 없음, 우선순위: 강풍 → 폭염 → 우천).`,
+  ];
+  return lines.join('\n') + '\n';
+}
+
+if (typeof module !== 'undefined') module.exports = { REGIONS, buildWeatherUrl, parseWeather, RULES, judge, createJudgmentMarkdown };
